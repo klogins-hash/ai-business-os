@@ -169,7 +169,7 @@ export async function getTasksByAgent(agentId: string): Promise<Task[]> {
   const db = await getDb();
   if (!db) return [];
   
-  return db.select().from(tasks).where(eq(tasks.assignedTo, agentId));
+  return db.select().from(tasks).where(eq(tasks.assignedAgentId, agentId));
 }
 
 export async function getPendingTasks(): Promise<Task[]> {

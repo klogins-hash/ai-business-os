@@ -265,7 +265,7 @@ Respond with a list of decisions.`;
     // Create the agent
     const agent = await createAgent({
       id: randomUUID(),
-      templateId: template!.id,
+      // templateId: template!.id,
       name: data.name || `${data.agentType} #${Date.now()}`,
       status: "idle",
       hiredBy: this.orchestratorId,
