@@ -61,7 +61,7 @@ export class MagenticManager {
       await logAgentAction({
         id: randomUUID(),
         agentId: this.orchestratorId,
-        actionType: "strategic_loop_completed",
+        action: "strategic_loop_completed",
         details: JSON.stringify({ directiveId: directive.id, decisionsCount: decisions.length }),
       });
     } catch (error) {
@@ -69,7 +69,7 @@ export class MagenticManager {
       await logAgentAction({
         id: randomUUID(),
         agentId: this.orchestratorId,
-        actionType: "strategic_loop_error",
+        action: "strategic_loop_error",
         details: JSON.stringify({ error: String(error) }),
       });
     }
@@ -97,7 +97,7 @@ export class MagenticManager {
       completedTasks,
       inProgressTasks,
       blockedTasks,
-      principles: principles?.content || "No principles set",
+      principles: principles?.principle || "No principles set",
       goals,
       teamSize: agents.length,
       progress: tasks.length > 0 ? (completedTasks.length / tasks.length) * 100 : 0,
@@ -146,7 +146,7 @@ Task Status:
 Progress: ${state.progress.toFixed(1)}%
 
 Current Team:
-${state.agents.map((a: any) => `- ${a.instanceName} (${a.status}) - Template: ${a.templateId}`).join("\n")}
+${state.agents.map((a: any) => `- ${a.name} (${a.status}) - Template: ${a.templateId}`).join("\n")}
 
 Analyze this situation and make strategic decisions. Consider:
 1. Do we need to hire new agents? What type?
@@ -225,7 +225,7 @@ Respond with a list of decisions.`;
       await logAgentAction({
         id: randomUUID(),
         agentId: this.orchestratorId,
-        actionType: `decision_executed_${decision.type}`,
+        action: `decision_executed_${decision.type}`,
         details: JSON.stringify(decision),
       });
     } catch (error) {
@@ -253,11 +253,10 @@ Respond with a list of decisions.`;
       // Request approval for expensive agents
       await createHitlRequest({
         id: randomUUID(),
-        requestType: "hire_approval",
+        type: "agent_hiring",
         requestedBy: this.orchestratorId,
         title: `Hire ${data.agentType} Agent`,
         description: `Cost: $${dailyCost.toFixed(2)}/day\nReason: ${data.reason}`,
-        context: JSON.stringify(data),
         status: "pending",
       });
       return;
@@ -267,7 +266,7 @@ Respond with a list of decisions.`;
     const agent = await createAgent({
       id: randomUUID(),
       templateId: template!.id,
-      instanceName: data.instanceName || `${data.agentType} #${Date.now()}`,
+      name: data.name || `${data.agentType} #${Date.now()}`,
       status: "idle",
       specialization: data.specialization,
       hiredBy: this.orchestratorId,
@@ -277,11 +276,8 @@ Respond with a list of decisions.`;
     await createMessage({
       id: randomUUID(),
       conversationId: this.conversationId,
-      fromType: "orchestrator",
-      fromId: this.orchestratorId,
-      toType: "user",
-      messageType: "update",
-      content: `✅ Hired new agent: ${agent.instanceName}\nReason: ${data.reason}`,
+      role: "assistant",
+      content: `✅ Hired new agent: ${agent.name}\nReason: ${data.reason}`,
     });
 
     console.log(`[Orchestrator] Agent hired: ${agent.id}`);
@@ -303,9 +299,9 @@ Always provide detailed updates on your progress.`;
       id: randomUUID(),
       name: agentType,
       description: `${agentType} agent${specialization ? ` - ${specialization}` : ""}`,
-      capabilities: JSON.stringify([agentType.toLowerCase(), "task_execution"]),
+      capabilities: [agentType.toLowerCase(), "task_execution"],
       systemPrompt,
-      tools: JSON.stringify(["web_search", "code_execution", "file_operations"]),
+      tools: ["web_search", "code_execution", "file_operations"],
       costPerHour: 50, // Default 50 cents/hour
     });
 
@@ -321,22 +317,16 @@ Always provide detailed updates on your progress.`;
       directiveId: data.directiveId,
       title: data.title,
       description: data.description,
-      assignedTo: data.assignedTo,
-      createdBy: this.orchestratorId,
+      assignedAgentId: data.assignedTo,
       status: "pending",
       priority: data.priority || 1,
-      requiresHitl: data.requiresHitl ? 1 : 0,
     });
 
     // Send message about task creation
     await createMessage({
       id: randomUUID(),
       conversationId: this.conversationId,
-      fromType: "orchestrator",
-      fromId: this.orchestratorId,
-      toType: "agent",
-      toId: data.assignedTo,
-      messageType: "request",
+      role: "assistant",
       content: `📋 New task assigned: ${task.title}`,
       metadata: JSON.stringify({ taskId: task.id }),
     });
@@ -349,12 +339,12 @@ Always provide detailed updates on your progress.`;
    */
   private async reallocateAgent(data: ReallocateAgentData): Promise<void> {
     await updateAgent(data.agentId, {
-      currentTaskId: data.newTaskId,
+      currentTask: data.newTaskId,
       status: "busy",
     });
 
     await updateTask(data.newTaskId, {
-      assignedTo: data.agentId,
+      assignedAgentId: data.agentId,
       status: "in_progress",
     });
 
@@ -367,11 +357,10 @@ Always provide detailed updates on your progress.`;
   private async requestHitl(data: RequestHitlData): Promise<void> {
     await createHitlRequest({
       id: randomUUID(),
-      requestType: data.requestType,
+      type: data.requestType as "budget_approval" | "strategic_pivot" | "agent_hiring" | "high_risk_decision",
       requestedBy: this.orchestratorId,
       title: data.title,
       description: data.description,
-      context: JSON.stringify(data.context),
       status: "pending",
     });
 
@@ -379,10 +368,7 @@ Always provide detailed updates on your progress.`;
     await createMessage({
       id: randomUUID(),
       conversationId: this.conversationId,
-      fromType: "orchestrator",
-      fromId: this.orchestratorId,
-      toType: "user",
-      messageType: "request",
+      role: "assistant",
       content: `🚨 Approval needed: ${data.title}\n\n${data.description}`,
     });
 
@@ -397,10 +383,7 @@ Always provide detailed updates on your progress.`;
     await createMessage({
       id: randomUUID(),
       conversationId: this.conversationId,
-      fromType: "orchestrator",
-      fromId: this.orchestratorId,
-      toType: "user",
-      messageType: "update",
+      role: "assistant",
       content: data.message,
     });
 
@@ -435,22 +418,18 @@ Always be helpful and transparent about what the team is working on.`;
       await createMessage({
         id: randomUUID(),
         conversationId: this.conversationId,
-        fromType: "user",
+        role: "user",
         content: message,
-        messageType: "chat",
       });
 
       await createMessage({
         id: randomUUID(),
         conversationId: this.conversationId,
-        fromType: "orchestrator",
-        fromId: this.orchestratorId,
-        toType: "user",
-        content: response.content,
-        messageType: "chat",
+        role: "assistant",
+        content: response.principle,
       });
 
-      return response.content;
+      return response.principle;
     } catch (error) {
       console.error("[Orchestrator] Error processing user message:", error);
       return "I apologize, but I encountered an error processing your message. Please try again.";
@@ -470,7 +449,7 @@ interface Decision {
 
 interface HireAgentData {
   agentType: string;
-  instanceName?: string;
+  name?: string;
   specialization?: string;
   reason: string;
 }
@@ -493,7 +472,6 @@ interface RequestHitlData {
   requestType: string;
   title: string;
   description: string;
-  context: any;
 }
 
 interface UpdateStatusData {

@@ -308,7 +308,7 @@ export async function getActiveGoals(): Promise<Goal[]> {
   const db = await getDb();
   if (!db) return [];
   
-  return db.select().from(goals).where(eq(goals.status, "active"));
+  return db.select().from(goals).where(eq(goals.id, "active"));
 }
 
 export async function updateGoal(id: string, data: Partial<InsertGoal>): Promise<void> {

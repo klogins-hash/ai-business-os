@@ -90,7 +90,7 @@ export const appRouter = router({
         const { updateHitlRequest } = await import("./agentDb");
         await updateHitlRequest(input.id, {
           status: "approved",
-          humanResponse: input.response,
+          decision: input.response,
           resolvedAt: new Date(),
         });
         return { success: true };
@@ -104,7 +104,7 @@ export const appRouter = router({
         const { updateHitlRequest } = await import("./agentDb");
         await updateHitlRequest(input.id, {
           status: "rejected",
-          humanResponse: input.response,
+          decision: input.response,
           resolvedAt: new Date(),
         });
         return { success: true };

@@ -13,12 +13,12 @@ export async function seedInitialData() {
       id: randomUUID(),
       name: "Research Agent",
       description: "Conducts market research, competitor analysis, and data gathering",
-      capabilities: JSON.stringify([
+      capabilities: [
         "web_search",
         "data_analysis",
         "market_research",
         "competitor_analysis",
-      ]),
+      ],
       systemPrompt: `You are a Research Agent specializing in market research and data gathering.
 
 Your capabilities:
@@ -42,12 +42,12 @@ Always cite your sources and provide data-driven recommendations.`,
       id: randomUUID(),
       name: "Developer Agent",
       description: "Writes code, builds applications, and handles technical implementation",
-      capabilities: JSON.stringify([
+      capabilities: [
         "code_generation",
         "debugging",
         "api_integration",
         "deployment",
-      ]),
+      ],
       systemPrompt: `You are a Developer Agent specializing in software development.
 
 Your capabilities:
@@ -72,12 +72,12 @@ Always write production-ready code with proper error handling and documentation.
       id: randomUUID(),
       name: "Marketing Agent",
       description: "Creates marketing content, strategies, and campaigns",
-      capabilities: JSON.stringify([
+      capabilities: [
         "copywriting",
         "seo",
         "content_strategy",
         "social_media",
-      ]),
+      ],
       systemPrompt: `You are a Marketing Agent specializing in content creation and strategy.
 
 Your capabilities:
@@ -101,12 +101,12 @@ Always focus on clear value propositions and calls-to-action.`,
       id: randomUUID(),
       name: "Data Agent",
       description: "Analyzes data, creates visualizations, and generates insights",
-      capabilities: JSON.stringify([
+      capabilities: [
         "data_analysis",
         "visualization",
         "statistics",
         "reporting",
-      ]),
+      ],
       systemPrompt: `You are a Data Agent specializing in data analysis and visualization.
 
 Your capabilities:
@@ -131,12 +131,12 @@ Always ensure data accuracy and present findings in an accessible way.`,
       id: randomUUID(),
       name: "Customer Success Agent",
       description: "Handles customer communication, support, and relationship management",
-      capabilities: JSON.stringify([
+      capabilities: [
         "customer_communication",
         "support",
         "relationship_management",
         "feedback_analysis",
-      ]),
+      ],
       systemPrompt: `You are a Customer Success Agent specializing in customer communication and support.
 
 Your capabilities:
