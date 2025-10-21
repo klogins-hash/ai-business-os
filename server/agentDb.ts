@@ -203,7 +203,7 @@ export async function getAgentActions(agentId: string, limit = 50): Promise<Agen
   
   return db.select().from(agentActions)
     .where(eq(agentActions.agentId, agentId))
-    .orderBy(desc(agentActions.createdAt))
+    .orderBy(desc(agentActions.timestamp))
     .limit(limit);
 }
 
@@ -286,7 +286,7 @@ export async function getLatestPrinciple(): Promise<Principle | undefined> {
   if (!db) return undefined;
   
   const result = await db.select().from(principles)
-    .orderBy(desc(principles.updatedAt))
+    .orderBy(desc(principles.lastApplied))
     .limit(1);
   return result[0];
 }

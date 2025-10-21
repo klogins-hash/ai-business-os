@@ -268,7 +268,6 @@ Respond with a list of decisions.`;
       templateId: template!.id,
       name: data.name || `${data.agentType} #${Date.now()}`,
       status: "idle",
-      specialization: data.specialization,
       hiredBy: this.orchestratorId,
     });
 
