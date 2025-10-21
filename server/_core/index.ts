@@ -57,8 +57,20 @@ async function startServer() {
     console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
   }
 
-  server.listen(port, () => {
+  server.listen(port, async () => {
     console.log(`Server running on http://localhost:${port}/`);
+    
+    // Initialize system on first start
+    try {
+      const { seedInitialData } = await import("../seedData");
+      await seedInitialData();
+    } catch (error) {
+      console.log("[Init] Seed data already exists or error:", error);
+    }
+    
+    // Start 24/7 autonomous worker
+    const { startWorker } = await import("../worker");
+    startWorker();
   });
 }
 
