@@ -1,16 +1,25 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { pgTable, varchar, text, timestamp, integer, pgEnum, boolean, json } from "drizzle-orm/pg-core";
 
 /**
  * Core user table backing auth flow.
  * Extend this file with additional tables as your product grows.
  * Columns use camelCase to match both database fields and generated types.
  */
-export const users = mysqlTable("users", {
+
+// Enums
+export const roleEnum = pgEnum("role", ["user", "admin"]);
+export const directiveStatusEnum = pgEnum("directive_status", ["active", "paused", "completed", "cancelled"]);
+export const agentStatusEnum = pgEnum("agent_status", ["idle", "busy", "offline"]);
+export const taskStatusEnum = pgEnum("task_status", ["pending", "in_progress", "completed", "failed", "blocked"]);
+export const hitlStatusEnum = pgEnum("hitl_status", ["pending", "approved", "rejected"]);
+export const hitlTypeEnum = pgEnum("hitl_type", ["budget_approval", "strategic_pivot", "agent_hiring", "high_risk_decision"]);
+
+export const users = pgTable("users", {
   id: varchar("id", { length: 64 }).primaryKey(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  role: roleEnum("role").default("user").notNull(),
   createdAt: timestamp("createdAt").defaultNow(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow(),
 });
@@ -19,149 +28,151 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
 // Strategic Directives - High-level goals from the user
-export const directives = mysqlTable("directives", {
+export const directives = pgTable("directives", {
   id: varchar("id", { length: 64 }).primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
   strategicContext: text("strategicContext"), // Full directive from user
-  status: mysqlEnum("status", ["active", "paused", "completed", "cancelled"]).default("active").notNull(),
-  priority: int("priority").default(1),
+  status: directiveStatusEnum("status").default("active").notNull(),
+  priority: integer("priority").default(1),
   targetCompletion: timestamp("targetCompletion"),
   createdAt: timestamp("createdAt").defaultNow(),
-  completedAt: timestamp("completedAt"),
+  updatedAt: timestamp("updatedAt").defaultNow(),
 });
 
 export type Directive = typeof directives.$inferSelect;
 export type InsertDirective = typeof directives.$inferInsert;
 
-// Agent Templates - Defines types of agents that can be created
-export const agentTemplates = mysqlTable("agentTemplates", {
+// Agent Templates - Types of agents available
+export const agentTemplates = pgTable("agentTemplates", {
   id: varchar("id", { length: 64 }).primaryKey(),
   name: varchar("name", { length: 255 }).notNull().unique(),
   description: text("description"),
-  capabilities: text("capabilities"), // JSON array of capabilities
-  systemPrompt: text("systemPrompt"),
-  tools: text("tools"), // JSON array of available tools
-  costPerHour: int("costPerHour").default(50), // in cents
+  capabilities: json("capabilities").$type<string[]>(), // ["research", "coding", "writing"]
+  systemPrompt: text("systemPrompt").notNull(),
+  tools: json("tools").$type<string[]>(), // ["web_search", "code_execution"]
+  costPerHour: integer("costPerHour").default(0), // in cents
   createdAt: timestamp("createdAt").defaultNow(),
 });
 
 export type AgentTemplate = typeof agentTemplates.$inferSelect;
 export type InsertAgentTemplate = typeof agentTemplates.$inferInsert;
 
-// Agent Instances - Actual running agents
-export const agents = mysqlTable("agents", {
+// Active Agents - Instances of agents working on tasks
+export const agents = pgTable("agents", {
   id: varchar("id", { length: 64 }).primaryKey(),
   templateId: varchar("templateId", { length: 64 }).references(() => agentTemplates.id),
-  instanceName: varchar("instanceName", { length: 255 }).notNull(),
-  status: mysqlEnum("status", ["active", "idle", "busy", "terminated"]).default("idle").notNull(),
-  currentTaskId: varchar("currentTaskId", { length: 64 }),
-  specialization: text("specialization"),
-  performanceScore: int("performanceScore").default(100), // 0-100
-  totalTasksCompleted: int("totalTasksCompleted").default(0),
-  costToDate: int("costToDate").default(0), // in cents
-  hiredAt: timestamp("hiredAt").defaultNow(),
-  hiredBy: varchar("hiredBy", { length: 64 }),
-  managerId: varchar("managerId", { length: 64 }),
-  terminatedAt: timestamp("terminatedAt"),
+  name: varchar("name", { length: 255 }).notNull(),
+  status: agentStatusEnum("status").default("idle").notNull(),
+  currentTask: varchar("currentTask", { length: 64 }), // Reference to tasks.id
+  performanceScore: integer("performanceScore").default(100), // 0-100
+  totalTasksCompleted: integer("totalTasksCompleted").default(0),
+  totalCostIncurred: integer("totalCostIncurred").default(0), // in cents
+  specialization: text("specialization"), // Custom instructions
+  createdAt: timestamp("createdAt").defaultNow(),
+  lastActiveAt: timestamp("lastActiveAt").defaultNow(),
+  retiredAt: timestamp("retiredAt"),
+  retirementReason: text("retirementReason"),
 });
 
 export type Agent = typeof agents.$inferSelect;
 export type InsertAgent = typeof agents.$inferInsert;
 
-// Tasks - Work items
-export const tasks = mysqlTable("tasks", {
+// Tasks - Work items assigned to agents
+export const tasks = pgTable("tasks", {
   id: varchar("id", { length: 64 }).primaryKey(),
   directiveId: varchar("directiveId", { length: 64 }).references(() => directives.id),
-  parentTaskId: varchar("parentTaskId", { length: 64 }),
-  title: varchar("title", { length: 500 }).notNull(),
+  assignedAgentId: varchar("assignedAgentId", { length: 64 }).references(() => agents.id),
+  title: text("title").notNull(),
   description: text("description"),
-  assignedTo: varchar("assignedTo", { length: 64 }),
-  createdBy: varchar("createdBy", { length: 64 }),
-  status: mysqlEnum("status", ["pending", "in_progress", "blocked", "completed", "failed"]).default("pending").notNull(),
-  priority: int("priority").default(1),
-  requiresHitl: int("requiresHitl").default(0), // boolean as int
-  hitlApproved: int("hitlApproved").default(0), // boolean as int
-  dependencies: text("dependencies"), // JSON array of task IDs
-  outputs: text("outputs"), // JSON object of results
+  status: taskStatusEnum("status").default("pending").notNull(),
+  priority: integer("priority").default(1),
+  dependencies: json("dependencies").$type<string[]>(), // Task IDs that must complete first
+  estimatedHours: integer("estimatedHours"),
+  actualHours: integer("actualHours"),
+  result: text("result"), // Output/result of the task
+  blockers: text("blockers"), // What's preventing completion
   createdAt: timestamp("createdAt").defaultNow(),
   startedAt: timestamp("startedAt"),
   completedAt: timestamp("completedAt"),
-  estimatedHours: int("estimatedHours"),
-  actualHours: int("actualHours"),
+  dueDate: timestamp("dueDate"),
+  parentTaskId: varchar("parentTaskId", { length: 64 }), // For subtasks
+  metadata: json("metadata"), // Flexible field for task-specific data
 });
 
 export type Task = typeof tasks.$inferSelect;
 export type InsertTask = typeof tasks.$inferInsert;
 
-// Agent Actions - Audit log
-export const agentActions = mysqlTable("agentActions", {
+// Agent Actions - Audit log of what agents are doing
+export const agentActions = pgTable("agentActions", {
   id: varchar("id", { length: 64 }).primaryKey(),
   agentId: varchar("agentId", { length: 64 }).references(() => agents.id),
-  actionType: varchar("actionType", { length: 100 }).notNull(),
   taskId: varchar("taskId", { length: 64 }),
-  details: text("details"), // JSON object
-  createdAt: timestamp("createdAt").defaultNow(),
+  action: text("action").notNull(), // "started_task", "completed_research", etc.
+  details: text("details"),
+  timestamp: timestamp("timestamp").defaultNow(),
+  costIncurred: integer("costIncurred").default(0), // in cents
 });
 
 export type AgentAction = typeof agentActions.$inferSelect;
 export type InsertAgentAction = typeof agentActions.$inferInsert;
 
-// HITL Requests - Human-in-the-loop approvals
-export const hitlRequests = mysqlTable("hitlRequests", {
+// HITL (Human-in-the-Loop) Requests - Decisions requiring human approval
+export const hitlRequests = pgTable("hitlRequests", {
   id: varchar("id", { length: 64 }).primaryKey(),
-  requestType: varchar("requestType", { length: 100 }).notNull(),
-  requestedBy: varchar("requestedBy", { length: 64 }),
-  directiveId: varchar("directiveId", { length: 64 }),
-  title: varchar("title", { length: 500 }).notNull(),
+  type: hitlTypeEnum("type").notNull(),
+  title: text("title").notNull(),
   description: text("description"),
-  context: text("context"), // JSON object
-  status: mysqlEnum("status", ["pending", "approved", "rejected"]).default("pending").notNull(),
-  humanResponse: text("humanResponse"),
+  requestedBy: varchar("requestedBy", { length: 64 }), // Agent ID or "orchestrator"
+  relatedDirectiveId: varchar("relatedDirectiveId", { length: 64 }),
+  relatedTaskId: varchar("relatedTaskId", { length: 64 }),
+  status: hitlStatusEnum("status").default("pending").notNull(),
+  decision: text("decision"), // User's response
   createdAt: timestamp("createdAt").defaultNow(),
   resolvedAt: timestamp("resolvedAt"),
+  metadata: json("metadata"), // Additional context
 });
 
 export type HitlRequest = typeof hitlRequests.$inferSelect;
 export type InsertHitlRequest = typeof hitlRequests.$inferInsert;
 
-// Messages - Agent-to-agent and user communication
-export const messages = mysqlTable("messages", {
+// Messages - Communication between user and Magentic Manager
+export const messages = pgTable("messages", {
   id: varchar("id", { length: 64 }).primaryKey(),
-  conversationId: varchar("conversationId", { length: 64 }),
-  fromType: varchar("fromType", { length: 50 }).notNull(), // 'user', 'orchestrator', 'agent'
-  fromId: varchar("fromId", { length: 64 }),
-  toType: varchar("toType", { length: 50 }),
-  toId: varchar("toId", { length: 64 }),
-  messageType: varchar("messageType", { length: 50 }).notNull(), // 'chat', 'handoff', 'update', 'request'
+  conversationId: varchar("conversationId", { length: 64 }), // Group related messages
+  role: varchar("role", { length: 20 }).notNull(), // "user" or "assistant"
   content: text("content").notNull(),
-  metadata: text("metadata"), // JSON object
+  directiveId: varchar("directiveId", { length: 64 }), // Optional link to directive
+  metadata: json("metadata"), // Tool calls, attachments, etc.
   createdAt: timestamp("createdAt").defaultNow(),
+  userId: varchar("userId", { length: 64 }),
+  isInternal: boolean("isInternal").default(false), // Internal agent communication
+  parentMessageId: varchar("parentMessageId", { length: 64 }), // For threading
 });
 
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = typeof messages.$inferInsert;
 
 // Principles - Living document of operating principles
-export const principles = mysqlTable("principles", {
+export const principles = pgTable("principles", {
   id: varchar("id", { length: 64 }).primaryKey(),
-  version: varchar("version", { length: 50 }).notNull(),
-  content: text("content").notNull(), // Markdown
-  updatedBy: varchar("updatedBy", { length: 64 }),
-  updatedAt: timestamp("updatedAt").defaultNow(),
+  category: varchar("category", { length: 100 }), // "decision_making", "team_building", etc.
+  principle: text("principle").notNull(),
+  createdAt: timestamp("createdAt").defaultNow(),
+  lastApplied: timestamp("lastApplied"),
 });
 
 export type Principle = typeof principles.$inferSelect;
 export type InsertPrinciple = typeof principles.$inferInsert;
 
-// Goals - Strategic business goals
-export const goals = mysqlTable("goals", {
+// Goals - Business goals and metrics
+export const goals = pgTable("goals", {
   id: varchar("id", { length: 64 }).primaryKey(),
-  title: varchar("title", { length: 500 }).notNull(),
-  targetValue: int("targetValue"),
-  currentValue: int("currentValue").default(0),
-  status: mysqlEnum("status", ["active", "completed", "cancelled"]).default("active").notNull(),
-  quarter: varchar("quarter", { length: 20 }),
+  title: text("title").notNull(),
+  description: text("description"),
+  targetMetric: text("targetMetric"), // What success looks like
+  currentValue: text("currentValue"),
+  targetValue: text("targetValue"),
   createdAt: timestamp("createdAt").defaultNow(),
 });
 
@@ -169,16 +180,17 @@ export type Goal = typeof goals.$inferSelect;
 export type InsertGoal = typeof goals.$inferInsert;
 
 // Work Sessions - Track 24/7 operation
-export const workSessions = mysqlTable("workSessions", {
+export const workSessions = pgTable("workSessions", {
   id: varchar("id", { length: 64 }).primaryKey(),
-  directiveId: varchar("directiveId", { length: 64 }),
-  agentsActive: int("agentsActive").default(0),
-  tasksCompleted: int("tasksCompleted").default(0),
-  costIncurred: int("costIncurred").default(0), // in cents
-  summary: text("summary"),
   startedAt: timestamp("startedAt").defaultNow(),
   endedAt: timestamp("endedAt"),
+  directivesProcessed: integer("directivesProcessed").default(0),
+  tasksCreated: integer("tasksCreated").default(0),
+  tasksCompleted: integer("tasksCompleted").default(0),
+  agentsHired: integer("agentsHired").default(0),
+  totalCost: integer("totalCost").default(0), // in cents
 });
 
 export type WorkSession = typeof workSessions.$inferSelect;
 export type InsertWorkSession = typeof workSessions.$inferInsert;
+

@@ -34,7 +34,7 @@ When assigned a task:
 4. Present clear, actionable insights
 
 Always cite your sources and provide data-driven recommendations.`,
-      tools: JSON.stringify(["web_search", "data_analysis", "report_generation"]),
+      tools: ["web_search", "data_analysis", "report_generation"],
       costPerHour: 40, // 40 cents/hour
     });
 
@@ -64,7 +64,7 @@ When assigned a task:
 5. Deploy and monitor
 
 Always write production-ready code with proper error handling and documentation.`,
-      tools: JSON.stringify(["code_execution", "github", "deployment", "testing"]),
+      tools: ["code_execution", "github", "deployment", "testing"],
       costPerHour: 80, // 80 cents/hour
     });
 
@@ -93,7 +93,7 @@ When assigned a task:
 4. Optimize for search and engagement
 
 Always focus on clear value propositions and calls-to-action.`,
-      tools: JSON.stringify(["content_generation", "seo_tools", "analytics"]),
+      tools: ["content_generation", "seo_tools", "analytics"],
       costPerHour: 50, // 50 cents/hour
     });
 
@@ -123,7 +123,7 @@ When assigned a task:
 5. Present actionable insights
 
 Always ensure data accuracy and present findings in an accessible way.`,
-      tools: JSON.stringify(["data_analysis", "visualization", "statistics"]),
+      tools: ["data_analysis", "visualization", "statistics"],
       costPerHour: 60, // 60 cents/hour
     });
 
@@ -152,15 +152,15 @@ When assigned a task:
 4. Follow up to ensure satisfaction
 
 Always be empathetic, professional, and solution-oriented.`,
-      tools: JSON.stringify(["email", "chat", "crm", "feedback_analysis"]),
+      tools: ["email", "chat", "crm", "feedback_analysis"],
       costPerHour: 45, // 45 cents/hour
     });
 
     // Create initial principles
     await createPrinciple({
       id: randomUUID(),
-      version: "1.0",
-      content: `# Business Operating Principles
+      category: "core",
+      principle: `# Business Operating Principles
 
 ## Core Values
 1. Build AI-native solutions that couldn't exist in a human-centric world
@@ -192,17 +192,15 @@ Always be empathetic, professional, and solution-oriented.`,
 - Request approval for high-impact decisions
 - Be transparent about challenges and blockers
 - Provide regular status updates`,
-      updatedBy: "system",
     });
 
     // Create initial goals
     await createGoal({
       id: randomUUID(),
       title: "Build functional MVP",
-      targetValue: 100,
-      currentValue: 0,
-      status: "active",
-      quarter: "Q4 2025",
+      targetValue: "100",
+      currentValue: "0",
+      description: "Complete the AI-Native Business Operating System MVP",
     });
 
     console.log("[Seed] Initial data seeded successfully");
